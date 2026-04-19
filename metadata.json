@@ -1,0 +1,6 @@
+{
+  "name": "WoW Log Analyzer",
+  "description": "Analyzes World of Warcraft combat logs from Warcraft Logs to identify player mistakes, positioning errors, and avoidable damage, with sharing capabilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
