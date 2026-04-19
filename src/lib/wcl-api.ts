@@ -30,7 +30,14 @@ async function getAccessToken() {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to authenticate with Warcraft Logs. Please check your credentials.');
+    let errorMessage = '';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error_description || errorData.error || response.statusText;
+    } catch (e) {
+      errorMessage = response.statusText;
+    }
+    throw new Error(`WCL Auth Error: ${errorMessage}. Please check your Client ID and Secret in settings.`);
   }
 
   const data = await response.json();

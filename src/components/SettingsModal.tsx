@@ -11,7 +11,7 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    store.setCredentials(clientId, clientSecret);
+    store.setCredentials(clientId.trim(), clientSecret.trim());
     onClose();
   };
 
