@@ -1,5 +1,5 @@
 import { fetchGraphQL } from './wcl-api';
-import { LEI_SHEN_ID, LEI_SHEN_MECHANICS, type WCLEvent, type PlayerMistake, type WipeAnalysis } from './wcl-types';
+import { LEI_SHEN_ID, LEI_SHEN_MECHANICS, CONSUMABLES, type WCLEvent, type PlayerMistake, type WipeAnalysis, type PlayerConsumables } from './wcl-types';
 
 export async function fetchLeiShenWipes(reportId: string, encounterId: number = LEI_SHEN_ID) {
   const query = `
@@ -48,12 +48,18 @@ export async function fetchLeiShenWipes(reportId: string, encounterId: number = 
 }
 
 export async function analyzeWipe(reportId: string, fight: any, players: Record<number, string>): Promise<WipeAnalysis> {
+  const ALL_TRACKED_SPELLS = [
+    ...Object.values(LEI_SHEN_MECHANICS),
+    ...CONSUMABLES.POTIONS,
+    ...CONSUMABLES.HEALTHSTONES
+  ];
+
   const query = `
     query GetFightEvents($reportId: String!, $startTime: Float!, $endTime: Float!) {
       reportData {
         report(code: $reportId) {
           events(startTime: $startTime, endTime: $endTime, limit: 10000, 
-                 filterExpression: "ability.id IN (${Object.values(LEI_SHEN_MECHANICS).join(',')})") {
+                 filterExpression: "type = \\"combatantinfo\\" OR ability.id IN (${ALL_TRACKED_SPELLS.join(',')})") {
             data
           }
         }
@@ -71,8 +77,45 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
   const mistakes: PlayerMistake[] = [];
   const mechanicEvents: MechanicEvent[] = [];
   const handledCasts = new Set<string>();
+  const combatants: Record<number, PlayerConsumables> = {};
 
   events.forEach(event => {
+    // 0. Parse Pre-pull Consumables Snapshot
+    // WCL fires a 'combatantinfo' payload for every player at the precise millisecond combat begins
+    if (event.type === 'combatantinfo') {
+      const playerId = event.sourceID;
+      // Ensure it's a real player and not a pet getting a strange ghost event
+      if (playerId && players[playerId]) {
+        const auras = event.auras || [];
+        const hasFood = auras.some((a: any) => CONSUMABLES.FOOD.includes(a.ability));
+        const hasFlask = auras.some((a: any) => CONSUMABLES.FLASKS.includes(a.ability));
+        const hasPrePot = auras.some((a: any) => CONSUMABLES.POTIONS.includes(a.ability));
+
+        combatants[playerId] = {
+          id: playerId,
+          name: players[playerId],
+          hasFood,
+          hasFlask,
+          hasPrePot,
+          combatPots: 0,
+          healthstones: 0
+        };
+      }
+      return; // combatantinfo events have no damage/cast data for subsequent steps
+    }
+
+    // 0.5 Parse Mid-fight consumables (Potions being consumed, Healthstones)
+    if (event.type === 'cast' && event.sourceID && combatants[event.sourceID]) {
+      const spellId = event.abilityGameID;
+      if (spellId) {
+        if (CONSUMABLES.POTIONS.includes(spellId)) {
+          combatants[event.sourceID].combatPots++;
+        } else if (CONSUMABLES.HEALTHSTONES.includes(spellId)) {
+          combatants[event.sourceID].healthstones++;
+        }
+      }
+    }
+
     // 1. Process Positional Cast Sweeps (Thunderstruck, Bouncing Bolt Casts)
     if (event.type === 'cast' || event.type === 'begincast' || event.type === 'applydebuff') {
       const spellId = event.abilityGameID;
@@ -212,6 +255,7 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
     kill: fight.kill,
     wipePercentage: fight.fightPercentage,
     mistakes,
-    mechanicEvents: mechanicEvents.sort((a,b) => a.timestamp - b.timestamp)
+    mechanicEvents: mechanicEvents.sort((a,b) => a.timestamp - b.timestamp),
+    consumables: Object.values(combatants).sort((a,b) => a.name.localeCompare(b.name))
   };
 }

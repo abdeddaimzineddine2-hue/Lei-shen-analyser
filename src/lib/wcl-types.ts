@@ -29,6 +29,34 @@ export const LEI_SHEN_MECHANICS = {
 
 export const LEI_SHEN_ID = 1577; // Encounter ID for Lei Shen
 
+// A broad capture of MoP Consumable Buff IDs
+export const CONSUMABLES = {
+  FLASKS: [
+    105689, 105691, 105693, 105694, 105696, 105681, // Standard Flasks
+    128960, 127230, 114786, // Crystal of Insanity & Alternatives
+  ],
+  FOOD: [
+    // Pandaren Banquets & High-end foods (250/275/300)
+    104273, 104274, 104275, 104276, 104277, 104278, 104279, 104280, 104281, 104282, 104283,
+    // Noodle Carts (added 5.4)
+    145308, 145307, 145309, 145310, 145311,
+    // Standard stat ranges as fallback
+    ...Array.from({length: 50}, (_, i) => 104250 + i)
+  ],
+  POTIONS: [
+    105697, // Virmen's Bite (Agi)
+    105702, // Jade Serpent (Int)
+    105706, // Mogu Power (Str)
+    105701, // Mountains (Armor)
+    105708, // Focus (Mana Channel)
+    105707, // Master Mana
+  ],
+  HEALTHSTONES: [
+    6262,   // Master Healthstone
+    105698, // Master Healing Potion
+  ]
+};
+
 // Types representing common WCL Event structures we care about
 export interface WCLEvent {
   type: string;
@@ -44,6 +72,17 @@ export interface WCLEvent {
   y?: number;
   targetX?: number;
   targetY?: number;
+  auras?: Array<{ ability: number; name?: string; }>;
+}
+
+export interface PlayerConsumables {
+  id: number;
+  name: string;
+  hasFood: boolean;
+  hasFlask: boolean;
+  hasPrePot: boolean;
+  combatPots: number;
+  healthstones: number;
 }
 
 export interface PlayerMistake {
@@ -82,4 +121,5 @@ export interface WipeAnalysis {
   wipePercentage: number;
   mistakes: PlayerMistake[];
   mechanicEvents: MechanicEvent[];
+  consumables: PlayerConsumables[];
 }

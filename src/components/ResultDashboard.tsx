@@ -159,6 +159,9 @@ export function ResultDashboard({ analyses, reportId, players }: ResultDashboard
                              <div>
                                <span className="font-semibold text-indigo-300">{evt.mechanicName}</span>
                                <span className="text-slate-500 text-xs ml-2">(@ {format(evt.timestamp, 'mm:ss')})</span>
+                               {evt.description && evt.description.includes('Check Replay') && (
+                                   <span className="text-slate-400 text-xs ml-2 block mt-1">{evt.description}</span>
+                               )}
                              </div>
                            </div>
                            <a 
@@ -174,6 +177,47 @@ export function ResultDashboard({ analyses, reportId, players }: ResultDashboard
                         ))}
                       </div>
                     </div>
+                  )}
+
+                  {/* Consumables Checklist */}
+                  {wipe.consumables && wipe.consumables.length > 0 && (
+                     <div className="mb-4 bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700/50">
+                        <div className="bg-slate-800 py-1.5 px-3 text-xs font-semibold text-slate-400 flex items-center justify-between border-b border-slate-700/50">
+                          <div className="flex items-center gap-1.5">
+                            <Zap className="w-3.5 h-3.5 text-indigo-400" />
+                            Pre-pull Consumables & Potions
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-normal">Based on combatantinfo exactly at pull</div>
+                        </div>
+                        <div className="p-3">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                {wipe.consumables.map(c => {
+                                    const missingAnything = !c.hasFlask || !c.hasFood || !c.hasPrePot;
+                                    const missingLabels = [];
+                                    if (!c.hasFlask) missingLabels.push("Flask");
+                                    if (!c.hasFood) missingLabels.push("Food");
+                                    if (!c.hasPrePot) missingLabels.push("Pre-pot");
+
+                                    return (
+                                        <div key={c.id} className={`flex flex-col text-xs p-2 rounded border ${missingAnything ? 'bg-red-500/5 border-red-500/20' : 'bg-green-500/5 border-green-500/10'}`}>
+                                            <span className="font-semibold text-slate-200">{c.name}</span>
+                                            {missingAnything ? (
+                                                <span className="text-red-400 font-medium">Missing: {missingLabels.join(', ')}</span>
+                                            ) : (
+                                                <span className="text-green-500 font-medium">Fully Prepared</span>
+                                            )}
+                                            {(c.combatPots > 0 || c.healthstones > 0) && (
+                                                <div className="mt-1 flex gap-2 text-slate-400 text-[10px]">
+                                                    {c.combatPots > 0 && <span>🧪 {c.combatPots} Combat Pot{c.combatPots > 1 ? 's' : ''}</span>}
+                                                    {c.healthstones > 0 && <span>💚 {c.healthstones} Healthstone{c.healthstones > 1 ? 's' : ''}</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                     </div>
                   )}
 
                   <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Individual Mistakes</div>
