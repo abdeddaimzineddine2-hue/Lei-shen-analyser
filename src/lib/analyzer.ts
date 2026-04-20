@@ -69,7 +69,7 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
 
   const data = await fetchGraphQL(query, { 
     reportId, 
-    startTime: fight.startTime - 15000, 
+    startTime: fight.startTime - 2000, 
     endTime: fight.endTime 
   });
 
@@ -78,6 +78,7 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
   const mechanicEvents: MechanicEvent[] = [];
   const handledCasts = new Set<string>();
   const combatants: Record<number, PlayerConsumables> = {};
+  const playerPotionTimestamps: Record<number, number[]> = {};
 
   // PASS 1: Initialize all active players from the exact pull snapshot (combatantinfo)
   events.forEach(event => {
@@ -99,6 +100,7 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
           combatPots: 0,
           healthstones: 0
         };
+        playerPotionTimestamps[playerId] = [];
       }
     }
   });
@@ -107,19 +109,40 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
   events.forEach(event => {
     if (event.type === 'combatantinfo') return;
 
-    // 0.5 Parse Mid-fight consumables (Potions being consumed, Healthstones) and 15s pre-pots
-    if (event.type === 'cast' && event.sourceID && combatants[event.sourceID]) {
+    // 0.5 Parse Mid-fight consumables (Potions being consumed, Healthstones) and pre-pots
+    const sourceId = event.sourceID;
+    if (sourceId && combatants[sourceId]) {
       const spellId = event.abilityGameID;
       if (spellId) {
         if (CONSUMABLES.POTIONS.includes(spellId)) {
-          // If the potion was cast before the pull (up to a tiny 2s lag grace period), it's a pre-pot!
-          if (event.timestamp <= fight.startTime + 2000) {
-            combatants[event.sourceID].hasPrePot = true;
-          } else {
-            combatants[event.sourceID].combatPots++;
+          const times = playerPotionTimestamps[sourceId] || [];
+          
+          if (event.type === 'cast' || event.type === 'applybuff') {
+             // Deduplicate: If we already recorded a potion event within the last 15 seconds, ignore this one.
+             const isDuplicate = times.some((t: number) => Math.abs(t - event.timestamp) < 15000);
+             
+             if (!isDuplicate) {
+                times.push(event.timestamp);
+                playerPotionTimestamps[sourceId] = times;
+                
+                // If cast was within 5 seconds of the pull, it's a pre-pot
+                if (event.timestamp <= fight.startTime + 5000) {
+                  combatants[sourceId].hasPrePot = true;
+                } else {
+                  combatants[sourceId].combatPots++;
+                }
+             }
+          } else if (event.type === 'removebuff') {
+             // If a potion buff falls off within the first 26 seconds of the fight, it was a prepot!
+             if (event.timestamp <= fight.startTime + 26000) {
+                 combatants[sourceId].hasPrePot = true;
+             }
           }
+          
         } else if (CONSUMABLES.HEALTHSTONES.includes(spellId)) {
-          combatants[event.sourceID].healthstones++;
+          if (event.type === 'cast') {
+            combatants[sourceId].healthstones++;
+          }
         }
       }
     }

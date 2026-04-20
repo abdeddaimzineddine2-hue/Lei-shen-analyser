@@ -187,7 +187,7 @@ export function ResultDashboard({ analyses, reportId, players }: ResultDashboard
                             <Zap className="w-3.5 h-3.5 text-indigo-400" />
                             Pre-pull Consumables & Potions
                           </div>
-                          <div className="text-[10px] text-slate-500 font-normal">Based on combatantinfo exactly at pull</div>
+                          <div className="text-[10px] text-slate-500 font-normal">Based on aura snapshot and buff removal events</div>
                         </div>
                         <div className="p-3">
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
