@@ -69,7 +69,7 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
 
   const data = await fetchGraphQL(query, { 
     reportId, 
-    startTime: fight.startTime, 
+    startTime: fight.startTime - 15000, 
     endTime: fight.endTime 
   });
 
@@ -79,16 +79,15 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
   const handledCasts = new Set<string>();
   const combatants: Record<number, PlayerConsumables> = {};
 
+  // PASS 1: Initialize all active players from the exact pull snapshot (combatantinfo)
   events.forEach(event => {
-    // 0. Parse Pre-pull Consumables Snapshot
-    // WCL fires a 'combatantinfo' payload for every player at the precise millisecond combat begins
     if (event.type === 'combatantinfo') {
       const playerId = event.sourceID;
-      // Ensure it's a real player and not a pet getting a strange ghost event
       if (playerId && players[playerId]) {
         const auras = event.auras || [];
         const hasFood = auras.some((a: any) => CONSUMABLES.FOOD.includes(a.ability));
         const hasFlask = auras.some((a: any) => CONSUMABLES.FLASKS.includes(a.ability));
+        // We capture prepot here just in case, but Pass 2 catches the actual cast if it dropped
         const hasPrePot = auras.some((a: any) => CONSUMABLES.POTIONS.includes(a.ability));
 
         combatants[playerId] = {
@@ -101,15 +100,24 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
           healthstones: 0
         };
       }
-      return; // combatantinfo events have no damage/cast data for subsequent steps
     }
+  });
 
-    // 0.5 Parse Mid-fight consumables (Potions being consumed, Healthstones)
+  // PASS 2: Analyze timelines, mistakes, and casts
+  events.forEach(event => {
+    if (event.type === 'combatantinfo') return;
+
+    // 0.5 Parse Mid-fight consumables (Potions being consumed, Healthstones) and 15s pre-pots
     if (event.type === 'cast' && event.sourceID && combatants[event.sourceID]) {
       const spellId = event.abilityGameID;
       if (spellId) {
         if (CONSUMABLES.POTIONS.includes(spellId)) {
-          combatants[event.sourceID].combatPots++;
+          // If the potion was cast before the pull (up to a tiny 2s lag grace period), it's a pre-pot!
+          if (event.timestamp <= fight.startTime + 2000) {
+            combatants[event.sourceID].hasPrePot = true;
+          } else {
+            combatants[event.sourceID].combatPots++;
+          }
         } else if (CONSUMABLES.HEALTHSTONES.includes(spellId)) {
           combatants[event.sourceID].healthstones++;
         }
