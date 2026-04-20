@@ -192,26 +192,36 @@ export function ResultDashboard({ analyses, reportId, players }: ResultDashboard
                         <div className="p-3">
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                                 {wipe.consumables.map(c => {
-                                    const missingAnything = !c.hasFlask || !c.hasFood || !c.hasPrePot;
-                                    const missingLabels = [];
-                                    if (!c.hasFlask) missingLabels.push("Flask");
-                                    if (!c.hasFood) missingLabels.push("Food");
-                                    if (!c.hasPrePot) missingLabels.push("Pre-pot");
+                                    const missingBuffs = [];
+                                    if (!c.hasFlask) missingBuffs.push("Flask");
+                                    if (!c.hasFood) missingBuffs.push("Food");
+
+                                    let potionText = "";
+                                    if (c.hasPrePot && c.combatPots > 0) {
+                                        potionText = `Used Pre-pot & ${c.combatPots} Combat Pot${c.combatPots > 1 ? 's' : ''}`;
+                                    } else if (c.hasPrePot && c.combatPots === 0) {
+                                        potionText = "Used Pre-pot only";
+                                    } else if (!c.hasPrePot && c.combatPots > 0) {
+                                        potionText = `Missed Pre-pot, used ${c.combatPots} Combat Pot${c.combatPots > 1 ? 's' : ''}`;
+                                    } else {
+                                        potionText = "No potions used";
+                                    }
+
+                                    const isPerfect = missingBuffs.length === 0 && c.hasPrePot;
 
                                     return (
-                                        <div key={c.id} className={`flex flex-col text-xs p-2 rounded border ${missingAnything ? 'bg-red-500/5 border-red-500/20' : 'bg-green-500/5 border-green-500/10'}`}>
+                                        <div key={c.id} className={`flex flex-col text-xs p-2 rounded border ${!isPerfect ? 'bg-red-500/5 border-red-500/20' : 'bg-green-500/5 border-green-500/10'}`}>
                                             <span className="font-semibold text-slate-200">{c.name}</span>
-                                            {missingAnything ? (
-                                                <span className="text-red-400 font-medium">Missing: {missingLabels.join(', ')}</span>
+                                            
+                                            {missingBuffs.length > 0 ? (
+                                                <span className="text-red-400 font-medium mt-0.5">Missing: {missingBuffs.join(', ')}</span>
                                             ) : (
-                                                <span className="text-green-500 font-medium">Fully Prepared</span>
+                                                <span className="text-emerald-500 font-medium mt-0.5">Food & Flask active</span>
                                             )}
-                                            {(c.combatPots > 0 || c.healthstones > 0) && (
-                                                <div className="mt-1 flex gap-2 text-slate-400 text-[10px]">
-                                                    {c.combatPots > 0 && <span>🧪 {c.combatPots} Combat Pot{c.combatPots > 1 ? 's' : ''}</span>}
-                                                    {c.healthstones > 0 && <span>💚 {c.healthstones} Healthstone{c.healthstones > 1 ? 's' : ''}</span>}
-                                                </div>
-                                            )}
+                                            
+                                            <span className={`mt-1 font-medium ${c.hasPrePot ? (c.combatPots > 0 ? 'text-indigo-300' : 'text-indigo-400/80') : 'text-orange-400'}`}>
+                                                🧪 {potionText}
+                                            </span>
                                         </div>
                                     )
                                 })}
