@@ -25,6 +25,7 @@ export const LEI_SHEN_MECHANICS = {
   VIOLENT_GALE_WINDS: 136889, // Pushed off platforms / taking tick damage
   LIGHTNING_WHIP: 136850, // Initial whip strike
   LIGHTNING_WHIP_VOID: 136845, // Standing in the lines left behind
+  SUPERCHARGE_CONDUITS: 137045, // Intermission transitions
 };
 
 export const LEI_SHEN_ID = 1577; // Encounter ID for Lei Shen
@@ -82,6 +83,7 @@ export interface PlayerConsumables {
   hasFlask: boolean;
   hasPrePot: boolean;
   combatPots: number;
+  combatPotPhases: string[];
   healthstones: number;
 }
 

@@ -197,12 +197,17 @@ export function ResultDashboard({ analyses, reportId, players }: ResultDashboard
                                     if (!c.hasFood) missingBuffs.push("Food");
 
                                     let potionText = "";
+                                    let phaseTag = "";
+                                    if (c.combatPots > 0 && c.combatPotPhases && c.combatPotPhases.length > 0) {
+                                        phaseTag = ` (${c.combatPotPhases.join(', ')})`;
+                                    }
+
                                     if (c.hasPrePot && c.combatPots > 0) {
-                                        potionText = `Used Pre-pot & ${c.combatPots} Combat Pot${c.combatPots > 1 ? 's' : ''}`;
+                                        potionText = `Used Pre-pot & ${c.combatPots} Combat Pot${c.combatPots > 1 ? 's' : ''}${phaseTag}`;
                                     } else if (c.hasPrePot && c.combatPots === 0) {
                                         potionText = "Used Pre-pot only";
                                     } else if (!c.hasPrePot && c.combatPots > 0) {
-                                        potionText = `Missed Pre-pot, used ${c.combatPots} Combat Pot${c.combatPots > 1 ? 's' : ''}`;
+                                        potionText = `Missed Pre-pot, used ${c.combatPots} Combat Pot${c.combatPots > 1 ? 's' : ''}${phaseTag}`;
                                     } else {
                                         potionText = "No potions used";
                                     }

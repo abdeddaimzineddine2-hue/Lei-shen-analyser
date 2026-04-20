@@ -79,8 +79,9 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
   const handledCasts = new Set<string>();
   const combatants: Record<number, PlayerConsumables> = {};
   const playerPotionTimestamps: Record<number, number[]> = {};
+  const superchargeCasts: number[] = [];
 
-  // PASS 1: Initialize all active players from the exact pull snapshot (combatantinfo)
+  // PASS 1: Initialize all active players from the exact pull snapshot (combatantinfo) and grab Intermissions
   events.forEach(event => {
     if (event.type === 'combatantinfo') {
       const playerId = event.sourceID;
@@ -98,12 +99,37 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
           hasFlask,
           hasPrePot,
           combatPots: 0,
+          combatPotPhases: [],
           healthstones: 0
         };
         playerPotionTimestamps[playerId] = [];
       }
+    } else if (event.abilityGameID === LEI_SHEN_MECHANICS.SUPERCHARGE_CONDUITS && (event.type === 'cast' || event.type === 'begincast' || event.type === 'applybuff')) {
+        // Collect timestamps of Supercharge Conduits so we know exactly when intermissions hit
+        superchargeCasts.push(event.timestamp);
     }
   });
+
+  // Sort and deduplicate the supercharge timestamps (usually there are exactly 2 in a full fight, 65% and 30%)
+  const sortedIntermissions = superchargeCasts.sort((a, b) => a - b).filter((time, index, self) => {
+    // Only keep if it's at least 30 seconds after the previous one (deduplicate cast/begincast events)
+    return index === 0 || time - self[index - 1] > 30000;
+  });
+
+  const getPhaseForTimestamp = (timestamp: number) => {
+      // 45 seconds after Supercharge starts, the intermission ends
+      const i1Start = sortedIntermissions[0];
+      const i1End = i1Start ? i1Start + 45000 : Infinity;
+      
+      const i2Start = sortedIntermissions[1];
+      const i2End = i2Start ? i2Start + 45000 : Infinity;
+
+      if (!i1Start || timestamp < i1Start) return "Phase 1";
+      if (timestamp >= i1Start && timestamp < i1End) return "Intermission 1";
+      if (timestamp >= i1End && timestamp < i2Start) return "Phase 2";
+      if (timestamp >= i2Start && timestamp < i2End) return "Intermission 2";
+      return "Phase 3";
+  }
 
   // PASS 2: Analyze timelines, mistakes, and casts
   events.forEach(event => {
@@ -130,6 +156,7 @@ export async function analyzeWipe(reportId: string, fight: any, players: Record<
                   combatants[sourceId].hasPrePot = true;
                 } else {
                   combatants[sourceId].combatPots++;
+                  combatants[sourceId].combatPotPhases.push(getPhaseForTimestamp(event.timestamp));
                 }
              }
           } else if (event.type === 'removebuff') {
